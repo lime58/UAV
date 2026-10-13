@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uav-mission-planning-platform"
+version = "1.0.0"
+description = "GIS-backed 3D UAV route planning and safety assessment platform"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "matplotlib>=3.7"]
+
+[tool.setuptools.packages.find]
+include = ["uav_planning*"]
+

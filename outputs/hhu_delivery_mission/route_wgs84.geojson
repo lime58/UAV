@@ -1,0 +1,143 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "mission_id": "HHU-JN-DELIVERY-001",
+    "coordinate_reference_system": "WGS84 / EPSG:4326",
+    "altitude_reference": "relative demonstration altitude"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mission_id": "HHU-JN-DELIVERY-001",
+        "algorithm": "RRT*",
+        "status": "SUCCESS"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            118.77619769182692,
+            31.912690413668866,
+            2.0
+          ],
+          [
+            118.77619769182692,
+            31.912690413668866,
+            38.0
+          ],
+          [
+            118.77801341240321,
+            31.913682127229603,
+            50.170198651162906
+          ],
+          [
+            118.78542918601113,
+            31.919317987892143,
+            44.18648985956636
+          ],
+          [
+            118.7858282705526,
+            31.919746682892676,
+            38.0
+          ],
+          [
+            118.7858282705526,
+            31.919746682892676,
+            2.0
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 0,
+        "phase": "GROUND_START"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.77619769182692,
+          31.912690413668866,
+          2.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 1,
+        "phase": "TAKEOFF"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.77619769182692,
+          31.912690413668866,
+          38.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 2,
+        "phase": "CRUISE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.77801341240321,
+          31.913682127229603,
+          50.170198651162906
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 3,
+        "phase": "CRUISE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.78542918601113,
+          31.919317987892143,
+          44.18648985956636
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 4,
+        "phase": "LANDING_APPROACH"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.7858282705526,
+          31.919746682892676,
+          38.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "sequence": 5,
+        "phase": "GROUND_GOAL"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.7858282705526,
+          31.919746682892676,
+          2.0
+        ]
+      }
+    }
+  ]
+}
