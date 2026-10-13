@@ -1,0 +1,14 @@
+{
+  "mission_id": "OBJ-DEMO-001",
+  "mission_name": "三维建筑模型航线规划示例",
+  "model": "data/cases/obj_building_demo.obj",
+  "algorithm": "astar",
+  "random_seed": 7,
+  "bounds": [[-8.0, 68.0], [-8.0, 58.0], [2.0, 38.0]],
+  "start": [0.0, 0.0, 8.0],
+  "goal": [60.0, 50.0, 8.0],
+  "mesh": {"voxel_size_m": 4.0, "obstacle_model": "component_boxes"},
+  "flight": {"safety_margin_m": 2.0},
+  "planner": {"resolution_m": 4.0},
+  "output_directory": "outputs/obj_demo_mission"
+}

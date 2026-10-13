@@ -1,5 +1,7 @@
 # 数据来源与处理说明
 
+`data/cases/obj_building_demo.obj`由本项目自行生成，仅用于验证OBJ解析、建筑连通体识别、三维规划和航线导出，不包含第三方实景模型或受限数据。
+
 ## 河海大学江宁校区案例
 
 - 校区边界：OpenStreetMap way 92364518，通过Nominatim查询。

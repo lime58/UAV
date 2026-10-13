@@ -1,0 +1,67 @@
+{
+  "schema": "uav-mission-interchange/v1",
+  "mission_id": "HHU-JN-DELIVERY-001",
+  "mission_name": "江宁校区跨区应急物资航线规划",
+  "coordinate_reference_system": "EPSG:4326",
+  "altitude_reference": "relative",
+  "execution": {
+    "mode": "waypoint",
+    "breakpoint_resume": true
+  },
+  "waypoints": [
+    {
+      "sequence": 0,
+      "longitude": 118.77619769182692,
+      "latitude": 31.912690413668866,
+      "relative_altitude_m": 2.0,
+      "speed_mps": 8.0,
+      "phase": "TAKEOFF",
+      "actions": []
+    },
+    {
+      "sequence": 1,
+      "longitude": 118.77619769182692,
+      "latitude": 31.912690413668866,
+      "relative_altitude_m": 38.0,
+      "speed_mps": 8.0,
+      "phase": "TRANSIT",
+      "actions": []
+    },
+    {
+      "sequence": 2,
+      "longitude": 118.77801341240321,
+      "latitude": 31.913682127229603,
+      "relative_altitude_m": 50.170198651162906,
+      "speed_mps": 8.0,
+      "phase": "TRANSIT",
+      "actions": []
+    },
+    {
+      "sequence": 3,
+      "longitude": 118.78542918601113,
+      "latitude": 31.919317987892143,
+      "relative_altitude_m": 44.18648985956636,
+      "speed_mps": 8.0,
+      "phase": "TRANSIT",
+      "actions": []
+    },
+    {
+      "sequence": 4,
+      "longitude": 118.7858282705526,
+      "latitude": 31.919746682892676,
+      "relative_altitude_m": 38.0,
+      "speed_mps": 8.0,
+      "phase": "TRANSIT",
+      "actions": []
+    },
+    {
+      "sequence": 5,
+      "longitude": 118.7858282705526,
+      "latitude": 31.919746682892676,
+      "relative_altitude_m": 2.0,
+      "speed_mps": 8.0,
+      "phase": "LAND",
+      "actions": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "mission_id": "OBJ-DEMO-001",
+  "mission_name": "三维建筑模型航线规划示例",
+  "status": "SUCCESS",
+  "algorithm": "A*",
+  "model_file": "data/cases/obj_building_demo.obj",
+  "mesh_vertices": 24,
+  "mesh_faces": 18,
+  "obstacle_volumes": 3,
+  "waypoint_count": 4,
+  "route_length_m": 87.87162348424063,
+  "planning_time_s": 2.197736569999506,
+  "expanded_nodes": 463,
+  "collision_free": true,
+  "voxel_size_m": 4.0,
+  "safety_margin_m": 2.0
+}

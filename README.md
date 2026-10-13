@@ -1,14 +1,14 @@
 # 通用低空无人机航线规划与安全评估平台
 
-本项目由早期多个无人机路径规划算法原型重构而来，面向建筑密集环境中的低空航线方案生成。平台将GIS空间数据、三维障碍建模、A*与RRT系列算法、安全校验和成果导出整合为一条完整任务链路。
+本项目由早期多个无人机路径规划算法原型重构而来，面向建筑密集环境中的低空航线方案生成。平台将GIS空间数据、OBJ三维模型、三维障碍建模、A*与RRT系列算法、安全校验和飞控任务包导出整合为一条完整任务链路。
 
 ```mermaid
 flowchart LR
-    A[公开或业务GIS数据] --> B[坐标统一与三维建模]
+    A[GIS或OBJ三维数据] --> B[坐标统一与障碍建模]
     B --> C[任务参数配置]
     C --> D[A* RRT RRT*规划]
     D --> E[全航段安全复核]
-    E --> F[GeoJSON CSV 图件与报告]
+    E --> F[GeoJSON KMZ 图件与报告]
 ```
 
 ## 项目解决的问题
@@ -22,6 +22,16 @@ flowchart LR
 5. 使用A*、RRT或RRT*规划无碰撞路径。
 6. 对起飞、巡航、降落全航段进行安全复核。
 7. 输出WGS84航线GeoJSON、航点CSV、三维成果图和任务报告。
+8. 将验证后的航线导出为通用飞控任务JSON和KML/KMZ任务包。
+
+## 两种场景输入
+
+| 模式 | 输入 | 建模方式 | 适用场景 |
+|---|---|---|---|
+| GIS任务模式 | GeoJSON / OSM | 建筑多边形拉伸与安全膨胀 | 大范围航线方案与地理坐标输出 |
+| 三维模型模式 | OBJ三角网模型 | 连通体包围盒或保守体素柱 | 局部精细场景与三维模型验证 |
+
+OBJ模式不会简单地把模型顶点当作全部障碍物。平台支持按不连通建筑体生成保守包围体，也支持把三角面投影为体素柱并向场景基底填充，以降低模型表面空洞造成的漏检风险。
 
 ## 真实案例
 
@@ -41,6 +51,8 @@ flowchart LR
 python -m pip install -r requirements.txt
 python scripts/prepare_osm_case.py
 python run_mission.py --config config/hhu_delivery_mission.json
+python run_obj_mission.py --config config/obj_demo_mission.json
+python scripts/export_flight_package.py
 python -m unittest discover -s tests -v
 ```
 
@@ -56,7 +68,23 @@ outputs/hhu_delivery_mission/
 ├── route_local.csv           # 本地米制航点
 ├── route_wgs84.geojson       # WGS84航线，可在QGIS中打开
 └── search_tree_3d.png        # RRT系列搜索过程
+
+outputs/obj_demo_mission/
+├── obj_mission_report.json   # OBJ模型规划结果
+├── obj_route.csv             # 本地三维坐标航点
+├── obj_route.obj             # 可与场景共同加载的OBJ折线
+├── obj_route_3d.png          # 三维模型障碍与航线
+└── obj_route_topdown.png     # 模型航线俯视图
+
+outputs/hhu_delivery_mission/flight_package/
+├── flight_mission.json       # 厂商无关任务交换格式
+├── flight_route.kml          # 标准KML航线
+└── flight_route.kmz          # 压缩任务包
 ```
+
+## 飞控适配边界
+
+`flight_export.py`输出的是经过校验的厂商无关任务交换格式，不会连接或控制真实飞行器。接入具体机型时，可以在此基础上增加DJI Cloud API、MAVLink或厂商SDK适配器，同时保留鉴权、设备状态检查和仿真验证环节。
 
 ## 代码结构
 
@@ -67,6 +95,9 @@ uav_planning/
 ├── planners.py          # A*、RRT、RRT*
 ├── analysis.py          # 路径平滑、指标和安全校验
 ├── mission.py           # 起飞—巡航—降落任务编排与导出
+├── mesh_adapter.py      # OBJ解析、连通体和保守体素柱建模
+├── obj_mission.py       # 三维模型任务编排与成果导出
+├── flight_export.py     # 通用飞控任务JSON与KML/KMZ
 └── visualization.py     # 三维环境、路径和搜索树
 
 legacy/                  # 原始算法代码和演进记录
@@ -84,7 +115,7 @@ tests/                   # 自动化测试
 
 ## 面试介绍
 
-> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续我将可稳定复现的A*、RRT和RRT*重构为统一规划内核，并补充了真实空间数据接入、坐标转换、建筑三维化、起降任务编排、安全校验及航线导出。平台可以读取建筑物和禁飞区GeoJSON，配置起终点、安全距离及巡航高度，输出可在QGIS中直接查看的WGS84航线和任务评估报告。河海大学江宁校区案例使用了74栋公开建筑数据，用于验证整套处理链路。
+> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续我将可稳定复现的A*、RRT和RRT*重构为统一规划内核，并补充了GIS与OBJ三维模型接入、建筑三维化、起降任务编排、安全校验及飞控任务包导出。平台既可以处理真实公开建筑数据，也可以读取OBJ三角网模型生成保守障碍体，输出WGS84 GeoJSON、任务报告以及通用JSON和KML/KMZ航线。河海大学江宁校区案例使用了74栋公开建筑数据，用于验证完整处理链路。
 
 ## 能力边界
 
