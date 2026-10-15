@@ -26,6 +26,10 @@ class MissionDataTests(unittest.TestCase):
         self.assertTrue(report.collision_free)
         self.assertGreater(report.minimum_obstacle_clearance_m, 4.0)
         self.assertGreaterEqual(len(path), 4)
+        self.assertLessEqual(report.maximum_climb_angle_deg, 15.0)
+        self.assertLessEqual(report.maximum_turn_angle_deg, 90.0)
+        self.assertLessEqual(report.maximum_altitude_m, 50.0)
+        self.assertGreaterEqual(report.maximum_altitude_m, 12.0)
 
     def test_obj_model_pipeline(self):
         mesh = load_obj("data/cases/obj_building_demo.obj")

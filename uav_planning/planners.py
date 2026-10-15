@@ -22,6 +22,154 @@ class PlanResult:
     message: str = ""
 
 
+def _angle_deg(first: np.ndarray, second: np.ndarray) -> float:
+    denominator = float(np.linalg.norm(first) * np.linalg.norm(second))
+    if denominator < 1e-12:
+        return 0.0
+    cosine = float(np.clip(np.dot(first, second) / denominator, -1.0, 1.0))
+    return math.degrees(math.acos(cosine))
+
+
+def _overflight_fraction(environment: Environment, start: Point, end: Point) -> float:
+    """Conservative building-overflight indicator used by the urban risk cost."""
+    midpoint = 0.5 * (start + end)
+    for obstacle in environment.obstacles:
+        low = np.asarray(obstacle.minimum, dtype=float) - environment.safety_margin
+        high = np.asarray(obstacle.maximum, dtype=float) + environment.safety_margin
+        if low[0] <= midpoint[0] <= high[0] and low[1] <= midpoint[1] <= high[1] and midpoint[2] > high[2]:
+            return 1.0
+    return 0.0
+
+
+def constrained_astar_3d(
+    environment: Environment,
+    horizontal_resolution: float = 10.0,
+    vertical_resolution: float = 2.5,
+    maximum_altitude: float = 50.0,
+    minimum_enroute_altitude: float = 12.0,
+    approach_radius: float = 75.0,
+    maximum_climb_angle_deg: float = 15.0,
+    maximum_turn_angle_deg: float = 90.0,
+    climb_cost_per_m: float = 4.0,
+    turn_cost_per_deg: float = 0.08,
+    overflight_cost_per_m: float = 12.0,
+    heuristic_weight: float = 2.0,
+) -> PlanResult:
+    """Direction-state A* for a flyable low-altitude route.
+
+    Unlike a geometric 26-neighbour demo, the state includes the incoming
+    direction.  This allows the search itself to reject excessive climb and
+    heading changes instead of trying to repair an infeasible route afterward.
+    Pure vertical moves are deliberately excluded.
+    """
+    started = time.perf_counter()
+    low = np.asarray([axis[0] for axis in environment.bounds], dtype=float)
+    high = np.asarray([axis[1] for axis in environment.bounds], dtype=float)
+    low[2] = min(float(environment.start[2]), float(environment.goal[2]))
+    high[2] = min(high[2], maximum_altitude)
+    step = np.asarray([horizontal_resolution, horizontal_resolution, vertical_resolution], dtype=float)
+    shape = tuple(int(math.floor((high[i] - low[i]) / step[i])) + 1 for i in range(3))
+
+    def point_to_index(point: Point) -> tuple[int, int, int]:
+        raw = np.rint((point - low) / step).astype(int)
+        return tuple(int(np.clip(raw[i], 0, shape[i] - 1)) for i in range(3))
+
+    def index_to_point(index: tuple[int, int, int]) -> Point:
+        return low + step * np.asarray(index, dtype=float)
+
+    start_index, goal_index = point_to_index(environment.start), point_to_index(environment.goal)
+    # The two horizontal components cannot both be zero: no artificial
+    # take-off-to-cruise vertical segment is available to the planner.
+    moves = [
+        move for move in itertools.product((-1, 0, 1), repeat=3)
+        if move != (0, 0, 0) and (move[0] != 0 or move[1] != 0)
+    ]
+    feasible_moves: list[tuple[int, int, int]] = []
+    for move in moves:
+        vector = step * np.asarray(move, dtype=float)
+        horizontal = float(np.linalg.norm(vector[:2]))
+        climb_angle = math.degrees(math.atan2(abs(float(vector[2])), horizontal))
+        if climb_angle <= maximum_climb_angle_deg + 1e-9:
+            feasible_moves.append(move)
+
+    State = tuple[tuple[int, int, int], tuple[int, int, int] | None]
+    start_state: State = (start_index, None)
+    queue: list[tuple[float, int, State]] = []
+    counter = itertools.count()
+    heapq.heappush(queue, (0.0, next(counter), start_state))
+    g_score: dict[State, float] = {start_state: 0.0}
+    came_from: dict[State, State] = {}
+    closed: set[State] = set()
+    goal_state: State | None = None
+
+    while queue:
+        _, _, current_state = heapq.heappop(queue)
+        if current_state in closed:
+            continue
+        closed.add(current_state)
+        current, previous_move = current_state
+        if current == goal_index:
+            goal_state = current_state
+            break
+        current_point = environment.start.copy() if current_state == start_state else index_to_point(current)
+        for move in feasible_moves:
+            neighbor = tuple(current[i] + move[i] for i in range(3))
+            if any(neighbor[i] < 0 or neighbor[i] >= shape[i] for i in range(3)):
+                continue
+            neighbor_point = environment.goal.copy() if neighbor == goal_index else index_to_point(neighbor)
+            if previous_move is not None:
+                first = step * np.asarray(previous_move, dtype=float)
+                second = neighbor_point - current_point
+                turn_angle = _angle_deg(first, second)
+                if turn_angle > maximum_turn_angle_deg + 1e-9:
+                    continue
+            else:
+                turn_angle = 0.0
+            actual_vector = neighbor_point - current_point
+            actual_horizontal = float(np.linalg.norm(actual_vector[:2]))
+            actual_climb_angle = math.degrees(math.atan2(abs(float(actual_vector[2])), actual_horizontal))
+            if actual_horizontal < 1e-12 or actual_climb_angle > maximum_climb_angle_deg + 1e-9:
+                continue
+            near_terminal = min(
+                float(np.linalg.norm((neighbor_point - environment.start)[:2])),
+                float(np.linalg.norm((neighbor_point - environment.goal)[:2])),
+            ) <= approach_radius
+            if neighbor_point[2] < minimum_enroute_altitude and not near_terminal:
+                continue
+            if not environment.point_is_free(neighbor_point):
+                continue
+            if not environment.segment_is_free(current_point, neighbor_point):
+                continue
+            segment_length = float(np.linalg.norm(neighbor_point - current_point))
+            climb = max(0.0, float(neighbor_point[2] - current_point[2]))
+            transition = (
+                segment_length
+                + climb_cost_per_m * climb
+                + turn_cost_per_deg * turn_angle
+                + overflight_cost_per_m * segment_length * _overflight_fraction(environment, current_point, neighbor_point)
+            )
+            neighbor_state: State = (neighbor, move)
+            tentative = g_score[current_state] + transition
+            if tentative >= g_score.get(neighbor_state, float("inf")):
+                continue
+            came_from[neighbor_state] = current_state
+            g_score[neighbor_state] = tentative
+            delta = environment.goal - neighbor_point
+            heuristic = float(np.linalg.norm(delta)) + climb_cost_per_m * max(0.0, float(delta[2]))
+            heapq.heappush(queue, (tentative + heuristic_weight * heuristic, next(counter), neighbor_state))
+
+    if goal_state is None:
+        return PlanResult("Constrained A*", False, [], time.perf_counter() - started, len(closed), [], "No feasible path")
+    states = [goal_state]
+    while states[-1] in came_from:
+        states.append(came_from[states[-1]])
+    states.reverse()
+    path = [index_to_point(state[0]) for state in states]
+    path[0] = environment.start.copy()
+    path[-1] = environment.goal.copy()
+    return PlanResult("Constrained A*", True, path, time.perf_counter() - started, len(closed), [])
+
+
 def _reconstruct_grid_path(
     came_from: dict[tuple[int, int, int], tuple[int, int, int]],
     current: tuple[int, int, int],

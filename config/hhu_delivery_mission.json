@@ -2,13 +2,16 @@
   "mission_id": "HHU-JN-DELIVERY-001",
   "mission_name": "江宁校区跨区应急物资航线规划",
   "scenario": "data/cases/hhu_jiangning.geojson",
-  "algorithm": "rrt_star",
+  "algorithm": "constrained_astar",
   "random_seed": 12,
   "flight": {
-    "cruise_altitude_m": 38.0,
     "cruise_speed_mps": 8.0,
     "vertical_speed_mps": 2.5,
-    "maximum_altitude_m": 80.0,
+    "maximum_altitude_m": 50.0,
+    "minimum_enroute_altitude_m": 12.0,
+    "approach_radius_m": 75.0,
+    "maximum_climb_angle_deg": 15.0,
+    "maximum_turn_angle_deg": 90.0,
     "safety_margin_m": 4.0
   },
   "planner": {
@@ -17,7 +20,13 @@
     "goal_bias": 0.15,
     "goal_tolerance_m": 38.0,
     "neighbor_radius_m": 85.0,
-    "astar_resolution_m": 12.0
+    "astar_resolution_m": 12.0,
+    "horizontal_resolution_m": 10.0,
+    "vertical_resolution_m": 2.5,
+    "climb_cost_per_m": 4.0,
+    "turn_cost_per_deg": 0.08,
+    "overflight_cost_per_m": 12.0,
+    "heuristic_weight": 2.0
   },
   "output_directory": "outputs/hhu_delivery_mission"
 }

@@ -1,0 +1,58 @@
+[
+  {
+    "horizontal_resolution_m": 10.0,
+    "vertical_resolution_m": 2.5,
+    "success": true,
+    "collision_free": true,
+    "planning_time_s": 20.067327433999708,
+    "expanded_nodes": 2591,
+    "waypoint_count": 134,
+    "path_length_m": 1501.5226816745007,
+    "minimum_clearance_m": 4.106789043833373,
+    "maximum_altitude_m": 14.5,
+    "maximum_climb_angle_deg": 14.036243467926479,
+    "maximum_turn_angle_deg": 90.0
+  },
+  {
+    "horizontal_resolution_m": 20.0,
+    "vertical_resolution_m": 5.0,
+    "success": true,
+    "collision_free": true,
+    "planning_time_s": 0.7876665779999712,
+    "expanded_nodes": 122,
+    "waypoint_count": 62,
+    "path_length_m": 1435.8937349535133,
+    "minimum_clearance_m": 4.4495070438401,
+    "maximum_altitude_m": 12.0,
+    "maximum_climb_angle_deg": 14.036243467926479,
+    "maximum_turn_angle_deg": 90.0
+  },
+  {
+    "horizontal_resolution_m": 30.0,
+    "vertical_resolution_m": 5.0,
+    "success": true,
+    "collision_free": true,
+    "planning_time_s": 0.30325217600011456,
+    "expanded_nodes": 56,
+    "waypoint_count": 42,
+    "path_length_m": 1417.497260909013,
+    "minimum_clearance_m": 4.505508459286162,
+    "maximum_altitude_m": 27.0,
+    "maximum_climb_angle_deg": 9.462322208025617,
+    "maximum_turn_angle_deg": 54.53757071469664
+  },
+  {
+    "horizontal_resolution_m": 40.0,
+    "vertical_resolution_m": 5.0,
+    "success": true,
+    "collision_free": true,
+    "planning_time_s": 0.2007940020002934,
+    "expanded_nodes": 33,
+    "waypoint_count": 29,
+    "path_length_m": 1375.4375061009314,
+    "minimum_clearance_m": 4.42354095622926,
+    "maximum_altitude_m": 22.0,
+    "maximum_climb_angle_deg": 7.125016348901798,
+    "maximum_turn_angle_deg": 50.123178774765954
+  }
+]

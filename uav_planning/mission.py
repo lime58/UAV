@@ -8,9 +8,9 @@ from pathlib import Path
 
 import numpy as np
 
-from .analysis import path_length, smooth_path, validate_path
+from .analysis import maximum_climb_angle, maximum_turn_angle, path_length, smooth_path, validate_path
 from .environment import AABB, Environment, Point
-from .planners import PlanResult, astar_3d, rrt_3d, rrt_star_3d
+from .planners import PlanResult, astar_3d, constrained_astar_3d, rrt_3d, rrt_star_3d
 from .scenarios import load_geojson_scenario
 from .visualization import plot_paths, plot_topdown, plot_tree
 
@@ -29,6 +29,8 @@ class MissionReport:
     estimated_flight_time_s: float
     minimum_obstacle_clearance_m: float
     maximum_altitude_m: float
+    maximum_climb_angle_deg: float
+    maximum_turn_angle_deg: float
     planning_time_s: float
     expanded_nodes: int
     data_source: str
@@ -91,16 +93,24 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
 
     ground_start = environment.start.copy()
     ground_goal = environment.goal.copy()
-    cruise_altitude = float(flight["cruise_altitude_m"])
-    environment.start = np.asarray([ground_start[0], ground_start[1], cruise_altitude])
-    environment.goal = np.asarray([ground_goal[0], ground_goal[1], cruise_altitude])
-    if not environment.segment_is_free(ground_start, environment.start):
-        raise ValueError("Takeoff corridor intersects an obstacle; adjust the start point")
-    if not environment.segment_is_free(environment.goal, ground_goal):
-        raise ValueError("Landing corridor intersects an obstacle; adjust the goal point")
 
     algorithm = config["algorithm"].lower()
-    if algorithm == "astar":
+    if algorithm == "constrained_astar":
+        raw = constrained_astar_3d(
+            environment,
+            horizontal_resolution=float(planner["horizontal_resolution_m"]),
+            vertical_resolution=float(planner["vertical_resolution_m"]),
+            maximum_altitude=float(flight["maximum_altitude_m"]),
+            minimum_enroute_altitude=float(flight["minimum_enroute_altitude_m"]),
+            approach_radius=float(flight["approach_radius_m"]),
+            maximum_climb_angle_deg=float(flight["maximum_climb_angle_deg"]),
+            maximum_turn_angle_deg=float(flight["maximum_turn_angle_deg"]),
+            climb_cost_per_m=float(planner["climb_cost_per_m"]),
+            turn_cost_per_deg=float(planner["turn_cost_per_deg"]),
+            overflight_cost_per_m=float(planner["overflight_cost_per_m"]),
+            heuristic_weight=float(planner.get("heuristic_weight", 1.0)),
+        )
+    elif algorithm == "astar":
         raw = astar_3d(environment, resolution=float(planner["astar_resolution_m"]))
     elif algorithm == "rrt":
         raw = rrt_3d(
@@ -122,17 +132,19 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
             neighbor_radius=float(planner["neighbor_radius_m"]),
         )
     else:
-        raise ValueError("algorithm must be astar, rrt, or rrt_star")
+        raise ValueError("algorithm must be constrained_astar, astar, rrt, or rrt_star")
     if not raw.success:
         raise RuntimeError(f"Planning failed: {raw.message}")
 
-    cruise_path = smooth_path(raw.path, environment)
-    full_path = [ground_start, environment.start.copy(), *cruise_path[1:-1], environment.goal.copy(), ground_goal]
+    # The complete ground-to-ground mission is planned as one path.  We do not
+    # prepend/append artificial vertical segments because that hides climb-angle
+    # infeasibility and was the main flaw in the earlier demonstration.
+    full_path = raw.path if algorithm == "constrained_astar" else smooth_path(raw.path, environment)
     if not validate_path(full_path, environment):
         raise RuntimeError("Final route failed collision validation")
     total = path_length(full_path)
     horizontal = _horizontal_distance(full_path)
-    vertical = abs(cruise_altitude - ground_start[2]) + abs(cruise_altitude - ground_goal[2])
+    vertical = sum(abs(float(b[2] - a[2])) for a, b in zip(full_path, full_path[1:]))
     estimated_time = horizontal / float(flight["cruise_speed_mps"]) + vertical / float(flight["vertical_speed_mps"])
     clearance = minimum_clearance(full_path, environment.obstacles)
     max_altitude = max(float(point[2]) for point in full_path)
@@ -141,11 +153,12 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
         "建筑高度优先采用OSM height，其次按building:levels×3.3m估算，缺失时采用15m默认值。",
         "规划结果用于航线方案与风险评估，不直接替代飞控系统的实时避障和合规审批。",
         "所有输出航段均通过安全距离膨胀后的三维碰撞复核。",
+        "起降点附近采用受限过渡区，航路段不得低于配置的最低离地高度。",
     ]
     report = MissionReport(
         config["mission_id"], config["mission_name"], environment.name,
         raw.algorithm, "SUCCESS", True, len(full_path), horizontal, total,
-        estimated_time, clearance, max_altitude, raw.planning_time,
+        estimated_time, clearance, max_altitude, maximum_climb_angle(full_path), maximum_turn_angle(full_path), raw.planning_time,
         raw.expanded_nodes, source, notes,
     )
     return report, full_path, raw
@@ -208,6 +221,8 @@ def export_mission(config_path: str | Path, report: MissionReport, path: list[Po
         f"- 预计飞行时间：{report.estimated_flight_time_s:.1f} s",
         f"- 最小障碍净距：{report.minimum_obstacle_clearance_m:.2f} m",
         f"- 最大相对高度：{report.maximum_altitude_m:.2f} m",
+        f"- 最大航段爬升/下降角：{report.maximum_climb_angle_deg:.2f}°",
+        f"- 最大航向变化角：{report.maximum_turn_angle_deg:.2f}°",
         f"- 规划耗时：{report.planning_time_s:.3f} s",
         f"- 扩展节点：{report.expanded_nodes}",
         f"- 数据来源：{report.data_source}",

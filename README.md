@@ -6,7 +6,7 @@
 flowchart LR
     A[GIS或OBJ三维数据] --> B[坐标统一与障碍建模]
     B --> C[任务参数配置]
-    C --> D[A* RRT RRT*规划]
+    C --> D[运动学约束A*规划]
     D --> E[全航段安全复核]
     E --> F[GeoJSON KMZ 图件与报告]
 ```
@@ -18,9 +18,9 @@ flowchart LR
 1. 导入真实建筑物和禁飞区空间数据。
 2. 统一坐标系统，将WGS84经纬度转换为本地米制坐标。
 3. 根据建筑高度或楼层数构建三维障碍体。
-4. 配置起降点、巡航高度、安全距离和飞行速度。
-5. 使用A*、RRT或RRT*规划无碰撞路径。
-6. 对起飞、巡航、降落全航段进行安全复核。
+4. 配置起降点、最低航路高度、最高航高、安全距离和飞行速度。
+5. 使用带进入方向状态的约束A*统一规划地面起点至地面终点。
+6. 在搜索阶段限制爬升角和转向角，并对全航段进行安全复核。
 7. 输出WGS84航线GeoJSON、航点CSV、三维成果图和任务报告。
 8. 将验证后的航线导出为通用飞控任务JSON和KML/KMZ任务包。
 
@@ -51,6 +51,7 @@ OBJ模式不会简单地把模型顶点当作全部障碍物。平台支持按�
 python -m pip install -r requirements.txt
 python scripts/prepare_osm_case.py
 python run_mission.py --config config/hhu_delivery_mission.json
+python scripts/run_campus_experiments.py
 python run_obj_mission.py --config config/obj_demo_mission.json
 python scripts/export_flight_package.py
 python -m unittest discover -s tests -v
@@ -92,7 +93,7 @@ outputs/hhu_delivery_mission/flight_package/
 uav_planning/
 ├── environment.py       # 三维障碍物、边界和碰撞检测
 ├── scenarios.py         # 场景与GeoJSON解析
-├── planners.py          # A*、RRT、RRT*
+├── planners.py          # 约束A*及几何基线算法
 ├── analysis.py          # 路径平滑、指标和安全校验
 ├── mission.py           # 起飞—巡航—降落任务编排与导出
 ├── mesh_adapter.py      # OBJ解析、连通体和保守体素柱建模
@@ -109,13 +110,14 @@ tests/                   # 自动化测试
 
 进一步材料：
 
+- `METHODOLOGY.md`：论文依据、参数来源和能力边界；
 - `PROJECT_ACCEPTANCE.md`：功能验收表与随包案例指标；
 - `DATA_SOURCES.md`：公开数据来源、字段处理和许可说明；
 - `legacy/PROVENANCE.md`：原始代码与重构模块的对应关系。
 
 ## 面试介绍
 
-> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续我将可稳定复现的A*、RRT和RRT*重构为统一规划内核，并补充了GIS与OBJ三维模型接入、建筑三维化、起降任务编排、安全校验及飞控任务包导出。平台既可以处理真实公开建筑数据，也可以读取OBJ三角网模型生成保守障碍体，输出WGS84 GeoJSON、任务报告以及通用JSON和KML/KMZ航线。河海大学江宁校区案例使用了74栋公开建筑数据，用于验证完整处理链路。
+> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续参考城市无人机航迹规划论文，将校园任务重构为带方向状态的三维约束A*：地面起点至地面终点统一搜索，在搜索阶段检查最大爬升角、最大转向角、最低航路高度、最高航高和建筑安全距离，并对建筑上空飞越设置风险代价。河海大学江宁校区案例使用74栋OSM建筑数据，同时提供分辨率敏感性实验和可复现任务报告。
 
 ## 能力边界
 

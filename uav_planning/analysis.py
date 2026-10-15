@@ -25,6 +25,29 @@ def turning_angle_sum(path: list[Point]) -> float:
     return total
 
 
+def maximum_turn_angle(path: list[Point]) -> float:
+    maximum = 0.0
+    for a, b, c in zip(path, path[1:], path[2:]):
+        first, second = b - a, c - b
+        denominator = np.linalg.norm(first) * np.linalg.norm(second)
+        if denominator < 1e-12:
+            continue
+        cosine = float(np.clip(np.dot(first, second) / denominator, -1.0, 1.0))
+        maximum = max(maximum, math.degrees(math.acos(cosine)))
+    return maximum
+
+
+def maximum_climb_angle(path: list[Point]) -> float:
+    maximum = 0.0
+    for start, end in zip(path, path[1:]):
+        delta = end - start
+        horizontal = float(np.linalg.norm(delta[:2]))
+        if horizontal < 1e-12:
+            return 90.0
+        maximum = max(maximum, math.degrees(math.atan2(abs(float(delta[2])), horizontal)))
+    return maximum
+
+
 def smooth_path(path: list[Point], environment: Environment) -> list[Point]:
     """Greedy line-of-sight shortcutting while preserving collision safety."""
     if len(path) <= 2:
