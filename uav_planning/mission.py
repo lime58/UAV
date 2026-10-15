@@ -10,7 +10,10 @@ import numpy as np
 
 from .analysis import maximum_climb_angle, maximum_turn_angle, path_length, smooth_path, validate_path
 from .environment import AABB, Environment, Point
-from .planners import PlanResult, astar_3d, constrained_astar_3d, rrt_3d, rrt_star_3d
+from .planners import (
+    FlightConstraints, PlanResult, astar_3d, constrained_astar_3d,
+    constrained_rrt_3d, constrained_rrt_star_3d, rrt_3d, rrt_star_3d,
+)
 from .scenarios import load_geojson_scenario
 from .visualization import plot_paths, plot_topdown, plot_tree
 
@@ -95,6 +98,13 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
     ground_goal = environment.goal.copy()
 
     algorithm = config["algorithm"].lower()
+    constraints = FlightConstraints(
+        maximum_altitude=float(flight["maximum_altitude_m"]),
+        minimum_enroute_altitude=float(flight["minimum_enroute_altitude_m"]),
+        approach_radius=float(flight["approach_radius_m"]),
+        maximum_climb_angle_deg=float(flight["maximum_climb_angle_deg"]),
+        maximum_turn_angle_deg=float(flight["maximum_turn_angle_deg"]),
+    )
     if algorithm == "constrained_astar":
         raw = constrained_astar_3d(
             environment,
@@ -112,6 +122,19 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
         )
     elif algorithm == "astar":
         raw = astar_3d(environment, resolution=float(planner["astar_resolution_m"]))
+    elif algorithm == "constrained_rrt":
+        raw = constrained_rrt_3d(
+            environment, constraints, seed=int(config["random_seed"]),
+            max_iterations=int(planner["max_iterations"]), step_size=float(planner["step_size_m"]),
+            goal_bias=float(planner["goal_bias"]), goal_tolerance=float(planner["goal_tolerance_m"]),
+        )
+    elif algorithm == "constrained_rrt_star":
+        raw = constrained_rrt_star_3d(
+            environment, constraints, seed=int(config["random_seed"]),
+            max_iterations=int(planner["max_iterations"]), step_size=float(planner["step_size_m"]),
+            goal_bias=float(planner["goal_bias"]), goal_tolerance=float(planner["goal_tolerance_m"]),
+            neighbor_radius=float(planner["neighbor_radius_m"]),
+        )
     elif algorithm == "rrt":
         raw = rrt_3d(
             environment,
@@ -132,14 +155,14 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
             neighbor_radius=float(planner["neighbor_radius_m"]),
         )
     else:
-        raise ValueError("algorithm must be constrained_astar, astar, rrt, or rrt_star")
+        raise ValueError("unsupported planning algorithm")
     if not raw.success:
         raise RuntimeError(f"Planning failed: {raw.message}")
 
     # The complete ground-to-ground mission is planned as one path.  We do not
     # prepend/append artificial vertical segments because that hides climb-angle
     # infeasibility and was the main flaw in the earlier demonstration.
-    full_path = raw.path if algorithm == "constrained_astar" else smooth_path(raw.path, environment)
+    full_path = raw.path if algorithm.startswith("constrained_") else smooth_path(raw.path, environment)
     if not validate_path(full_path, environment):
         raise RuntimeError("Final route failed collision validation")
     total = path_length(full_path)

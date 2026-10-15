@@ -12,7 +12,11 @@ import numpy as np
 from .environment import Environment, Point
 
 
-COLORS = {"A*": "#1677ff", "Constrained A*": "#0f766e", "RRT": "#f97316", "RRT*": "#16a34a"}
+COLORS = {
+    "A*": "#1677ff", "Constrained A*": "#0f766e",
+    "RRT": "#f97316", "Constrained RRT": "#f97316",
+    "RRT*": "#16a34a", "Constrained RRT*": "#16a34a",
+}
 
 _font_path = Path(__file__).resolve().parent.parent / "assets" / "NotoSansSC.ttf"
 if _font_path.exists():

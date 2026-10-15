@@ -43,7 +43,7 @@ def maximum_climb_angle(path: list[Point]) -> float:
         delta = end - start
         horizontal = float(np.linalg.norm(delta[:2]))
         if horizontal < 1e-12:
-            return 90.0
+            continue
         maximum = max(maximum, math.degrees(math.atan2(abs(float(delta[2])), horizontal)))
     return maximum
 
