@@ -13,6 +13,7 @@ from .environment import AABB, Environment, Point
 from .planners import (
     FlightConstraints, PlanResult, astar_3d, constrained_astar_3d,
     constrained_rrt_3d, constrained_rrt_star_3d, rrt_3d, rrt_star_3d,
+    validate_flight_path,
 )
 from .scenarios import load_geojson_scenario
 from .visualization import plot_paths, plot_topdown, plot_tree
@@ -163,7 +164,12 @@ def run_mission(config_path: str | Path) -> tuple[MissionReport, list[Point], Pl
     # prepend/append artificial vertical segments because that hides climb-angle
     # infeasibility and was the main flaw in the earlier demonstration.
     full_path = raw.path if algorithm.startswith("constrained_") else smooth_path(raw.path, environment)
-    if not validate_path(full_path, environment):
+    final_valid = (
+        validate_flight_path(full_path, environment, constraints)
+        if algorithm.startswith("constrained_")
+        else validate_path(full_path, environment)
+    )
+    if not final_valid:
         raise RuntimeError("Final route failed collision validation")
     total = path_length(full_path)
     horizontal = _horizontal_distance(full_path)

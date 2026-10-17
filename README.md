@@ -6,7 +6,7 @@
 flowchart LR
     A[GIS或OBJ三维数据] --> B[坐标统一与障碍建模]
     B --> C[任务参数配置]
-    C --> D[运动学约束A*规划]
+    C --> D[三种运动学约束规划]
     D --> E[全航段安全复核]
     E --> F[GeoJSON KMZ 图件与报告]
 ```
@@ -19,8 +19,8 @@ flowchart LR
 2. 统一坐标系统，将WGS84经纬度转换为本地米制坐标。
 3. 根据建筑高度或楼层数构建三维障碍体。
 4. 配置起降点、最低航路高度、最高航高、安全距离和飞行速度。
-5. 使用带进入方向状态的约束A*统一规划地面起点至地面终点。
-6. 在搜索阶段限制爬升角和转向角，并对全航段进行安全复核。
+5. 在同一校园场景中运行Constrained A*、Constrained RRT和Constrained RRT*。
+6. 三种算法共享建筑安全距离、限高、最低航路高度、起降区、爬升角和转向角约束，并对全航段进行安全复核。
 7. 输出WGS84航线GeoJSON、航点CSV、三维成果图和任务报告。
 8. 将验证后的航线导出为通用飞控任务JSON和KML/KMZ任务包。
 
@@ -51,6 +51,7 @@ OBJ模式不会简单地把模型顶点当作全部障碍物。平台支持按�
 python -m pip install -r requirements.txt
 python scripts/prepare_osm_case.py
 python run_mission.py --config config/hhu_delivery_mission.json
+python scripts/compare_constrained_planners.py
 python scripts/run_campus_experiments.py
 python run_obj_mission.py --config config/obj_demo_mission.json
 python scripts/export_flight_package.py
@@ -68,7 +69,12 @@ outputs/hhu_delivery_mission/
 ├── mission_route_topdown.png # 建筑与航线俯视图
 ├── route_local.csv           # 本地米制航点
 ├── route_wgs84.geojson       # WGS84航线，可在QGIS中打开
-└── search_tree_3d.png        # RRT系列搜索过程
+└── search_tree_3d.png        # Constrained A*搜索过程
+
+outputs/hhu_constrained_comparison/
+├── summary.csv               # 三种约束规划算法的汇总指标
+├── raw_results.csv           # RRT/RRT*固定随机种子明细
+└── constrained_paths_3d.png  # 三维路径对比图
 
 outputs/obj_demo_mission/
 ├── obj_mission_report.json   # OBJ模型规划结果
@@ -93,7 +99,7 @@ outputs/hhu_delivery_mission/flight_package/
 uav_planning/
 ├── environment.py       # 三维障碍物、边界和碰撞检测
 ├── scenarios.py         # 场景与GeoJSON解析
-├── planners.py          # 约束A*及几何基线算法
+├── planners.py          # 三种约束规划器及几何基线算法
 ├── analysis.py          # 路径平滑、指标和安全校验
 ├── mission.py           # 起飞—巡航—降落任务编排与导出
 ├── mesh_adapter.py      # OBJ解析、连通体和保守体素柱建模
@@ -117,7 +123,7 @@ tests/                   # 自动化测试
 
 ## 面试介绍
 
-> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续参考城市无人机航迹规划论文，将校园任务重构为带方向状态的三维约束A*：地面起点至地面终点统一搜索，在搜索阶段检查最大爬升角、最大转向角、最低航路高度、最高航高和建筑安全距离，并对建筑上空飞越设置风险代价。河海大学江宁校区案例使用74栋OSM建筑数据，同时提供分辨率敏感性实验和可复现任务报告。
+> 项目最初从A*、RRT、遗传算法和DQN的独立验证开始，后续将校园任务重构为Constrained A*、Constrained RRT和Constrained RRT*的统一约束实验：三种规划器均检查最大爬升角、最大转向角、最低航路高度、最高航高和建筑安全距离，并输出可复现的任务报告。Constrained A*包含爬升、转向和建筑上空飞越代价；RRT系列当前主要优化路径长度。因此该实验比较的是统一硬约束下的不同规划策略，不构成相同目标函数下的最优性证明。河海大学江宁校区案例使用74栋OSM建筑数据。
 
 ## 能力边界
 

@@ -85,6 +85,20 @@ def transition_is_valid(
     return True
 
 
+def validate_flight_path(
+    path: list[Point], environment: Environment, constraints: FlightConstraints,
+) -> bool:
+    """Validate a complete constrained route through the shared transition check."""
+    if len(path) < 2:
+        return False
+    previous_direction: Point | None = None
+    for start, end in zip(path, path[1:]):
+        if not transition_is_valid(environment, start, end, previous_direction, constraints):
+            return False
+        previous_direction = end - start
+    return True
+
+
 def _angle_deg(first: np.ndarray, second: np.ndarray) -> float:
     denominator = float(np.linalg.norm(first) * np.linalg.norm(second))
     if denominator < 1e-12:
@@ -157,6 +171,7 @@ def constrained_astar_3d(
     heapq.heappush(queue, (0.0, next(counter), start_state))
     g_score: dict[State, float] = {start_state: 0.0}
     came_from: dict[State, State] = {}
+    search_edges: list[tuple[Point, Point]] = []
     closed: set[State] = set()
     goal_state: State | None = None
 
@@ -192,13 +207,14 @@ def constrained_astar_3d(
             if tentative >= g_score.get(neighbor_state, float("inf")):
                 continue
             came_from[neighbor_state] = current_state
+            search_edges.append((current_point.copy(), neighbor_point.copy()))
             g_score[neighbor_state] = tentative
             delta = environment.goal - neighbor_point
             heuristic = float(np.linalg.norm(delta)) + climb_cost_per_m * max(0.0, float(delta[2]))
             heapq.heappush(queue, (tentative + heuristic_weight * heuristic, next(counter), neighbor_state))
 
     if goal_state is None:
-        return PlanResult("Constrained A*", False, [], time.perf_counter() - started, len(closed), [], "No feasible path")
+        return PlanResult("Constrained A*", False, [], time.perf_counter() - started, len(closed), search_edges, "No feasible path")
     states = [goal_state]
     while states[-1] in came_from:
         states.append(came_from[states[-1]])
@@ -206,7 +222,9 @@ def constrained_astar_3d(
     path = [index_to_point(state[0]) for state in states]
     path[0] = environment.start.copy()
     path[-1] = environment.goal.copy()
-    return PlanResult("Constrained A*", True, path, time.perf_counter() - started, len(closed), [])
+    if not validate_flight_path(path, environment, constraints):
+        return PlanResult("Constrained A*", False, [], time.perf_counter() - started, len(closed), search_edges, "Final path constraint validation failed")
+    return PlanResult("Constrained A*", True, path, time.perf_counter() - started, len(closed), search_edges)
 
 
 def _reconstruct_grid_path(
@@ -409,10 +427,12 @@ def constrained_rrt_3d(
             environment, new_point, environment.goal,
             _incoming_direction(nodes, new_index), constraints,
         ):
-            return PlanResult(
-                "Constrained RRT", True, _tree_path(nodes, new_index, environment.goal),
-                time.perf_counter() - started, len(nodes), _tree_edges(nodes),
-            )
+            path = _tree_path(nodes, new_index, environment.goal)
+            if validate_flight_path(path, environment, constraints):
+                return PlanResult(
+                    "Constrained RRT", True, path,
+                    time.perf_counter() - started, len(nodes), _tree_edges(nodes),
+                )
     return PlanResult(
         "Constrained RRT", False, [], time.perf_counter() - started,
         len(nodes), _tree_edges(nodes), "Iteration limit reached",
@@ -460,6 +480,13 @@ def rrt_star_3d(
             goal_candidates.append(new_index)
         if goal_candidates and len(nodes) >= 900:
             break
+    goal_candidates = [
+        index for index in goal_candidates
+        if transition_is_valid(
+            environment, nodes[index].point, environment.goal,
+            _incoming_direction(nodes, index), constraints,
+        )
+    ]
     if goal_candidates:
         best = min(goal_candidates, key=lambda i: nodes[i].cost + float(np.linalg.norm(nodes[i].point - environment.goal)))
         return PlanResult(
@@ -536,15 +563,23 @@ def constrained_rrt_star_3d(
             goal_candidates.append(new_index)
         if goal_candidates and len(nodes) >= minimum_nodes_after_goal:
             break
-    if goal_candidates:
-        best = min(
-            goal_candidates,
-            key=lambda index: nodes[index].cost + float(np.linalg.norm(nodes[index].point - environment.goal)),
+    valid_candidates = [
+        index for index in goal_candidates
+        if transition_is_valid(
+            environment, nodes[index].point, environment.goal,
+            _incoming_direction(nodes, index), constraints,
         )
-        return PlanResult(
-            "Constrained RRT*", True, _tree_path(nodes, best, environment.goal),
-            time.perf_counter() - started, len(nodes), _tree_edges(nodes),
-        )
+    ]
+    for best in sorted(
+        valid_candidates,
+        key=lambda index: nodes[index].cost + float(np.linalg.norm(nodes[index].point - environment.goal)),
+    ):
+        path = _tree_path(nodes, best, environment.goal)
+        if validate_flight_path(path, environment, constraints):
+            return PlanResult(
+                "Constrained RRT*", True, path,
+                time.perf_counter() - started, len(nodes), _tree_edges(nodes),
+            )
     return PlanResult(
         "Constrained RRT*", False, [], time.perf_counter() - started,
         len(nodes), _tree_edges(nodes), "Iteration limit reached",

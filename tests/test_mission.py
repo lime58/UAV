@@ -1,4 +1,5 @@
 import json
+import math
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -12,7 +13,7 @@ from uav_planning.mission import run_mission
 from uav_planning.analysis import maximum_climb_angle, maximum_turn_angle, validate_path
 from uav_planning.planners import (
     FlightConstraints, constrained_astar_3d, constrained_rrt_3d,
-    constrained_rrt_star_3d, transition_is_valid,
+    constrained_rrt_star_3d, transition_is_valid, validate_flight_path,
 )
 
 
@@ -74,13 +75,22 @@ class MissionDataTests(unittest.TestCase):
                     result = planner()
                 self.assertGreater(shared_check.call_count, 0)
                 self.assertTrue(result.success, result.message)
+                self.assertTrue(validate_flight_path(result.path, environment, constraints))
                 self.assertTrue(validate_path(result.path, environment))
                 self.assertLessEqual(max(point[2] for point in result.path), constraints.maximum_altitude)
                 self.assertLessEqual(maximum_climb_angle(result.path), constraints.maximum_climb_angle_deg + 1e-6)
                 self.assertLessEqual(maximum_turn_angle(result.path), constraints.maximum_turn_angle_deg + 1e-6)
+                if result.algorithm == "Constrained A*":
+                    self.assertTrue(result.tree_edges)
                 previous = None
                 for start, end in zip(result.path, result.path[1:]):
                     self.assertTrue(transition_is_valid(environment, start, end, previous, constraints))
+                    for fraction in (0.0, 0.5, 1.0):
+                        point = start + fraction * (end - start)
+                        near_start = math.hypot(point[0] - environment.start[0], point[1] - environment.start[1]) <= 75.0
+                        near_goal = math.hypot(point[0] - environment.goal[0], point[1] - environment.goal[1]) <= 75.0
+                        if not near_start and not near_goal:
+                            self.assertGreaterEqual(point[2], 12.0 - 1e-9)
                     previous = end - start
 
 
